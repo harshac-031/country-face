@@ -45,7 +45,8 @@ def show(box, name):
                   [max(c["latitude"] for c in top), max(c["longitude"] for c in top)]])
     with box:
         st_folium(m, height=300, key=name, returned_objects=[])
-        st.bar_chart(pd.Series({c["name"]: c["population"] for c in top}))
+        st.bar_chart(pd.DataFrame({"City": [c["name"] for c in top], "People living there": [c["population"] for c in top]}),
+                     x="City", y="People living there", x_label="City (top 10)", y_label="People living there")
 
 show(left, name_a)
 show(right, name_b)
