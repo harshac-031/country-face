@@ -1,4 +1,4 @@
-name: Wake Streamlit App
+name: Wake Streamlit Apps
 
 on:
   schedule:
@@ -16,9 +16,16 @@ jobs:
       - name: Install Selenium
         run: pip install selenium
 
-      - name: Visit app and click wake button if asleep
+      - name: Visit each app and click wake button if asleep
         env:
-          STREAMLIT_APP_URL: https://country-faceoff.streamlit.app/
+          # One app URL per line. To add an app, add a new line below.
+          STREAMLIT_APP_URLS: |
+            https://country-faceoff.streamlit.app/
+            https://world-expo.streamlit.app/
+            https://world-time-machine.streamlit.app/
+            https://distance-showdown.streamlit.app/
+            https://power-planner.streamlit.app/
+            https://geoooo.streamlit.app/
         run: |
           python - <<'PY'
           import os, sys, time
@@ -29,27 +36,33 @@ jobs:
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.support.ui import WebDriverWait
 
-          URL = os.environ["STREAMLIT_APP_URL"]
+          URLS = [u.strip() for u in os.environ["STREAMLIT_APP_URLS"].splitlines() if u.strip()]
           BTN = "//button[contains(text(),'Yes, get this app back up')]"
+          failed = []
 
-          o = Options()
-          for a in ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]:
-              o.add_argument(a)
-          d = webdriver.Chrome(options=o)
-          try:
-              d.get(URL)
-              print("Opened", URL)
+          for url in URLS:
+              o = Options()
+              for a in ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]:
+                  o.add_argument(a)
+              d = webdriver.Chrome(options=o)
               try:
-                  WebDriverWait(d, 15).until(EC.element_to_be_clickable((By.XPATH, BTN))).click()
-                  print("App was asleep - clicked wake button")
-                  WebDriverWait(d, 20).until(EC.invisibility_of_element_located((By.XPATH, BTN)))
-              except TimeoutException:
-                  print("No wake button found - app already awake")
-              time.sleep(45)  # stay on page so the session counts as real traffic
-              print("Done")
-          except Exception as e:
-              print("Error:", e)
+                  d.get(url)
+                  print("Opened", url)
+                  try:
+                      WebDriverWait(d, 15).until(EC.element_to_be_clickable((By.XPATH, BTN))).click()
+                      print("  App was asleep - clicked wake button")
+                      WebDriverWait(d, 20).until(EC.invisibility_of_element_located((By.XPATH, BTN)))
+                  except TimeoutException:
+                      print("  No wake button found - app already awake")
+                  time.sleep(45)  # stay on page so the session counts as real traffic
+                  print("  Done")
+              except Exception as e:
+                  print("  Error:", e)
+                  failed.append(url)
+              finally:
+                  d.quit()
+
+          if failed:
+              print("FAILED:", failed)
               sys.exit(1)
-          finally:
-              d.quit()
           PY
