@@ -9,14 +9,47 @@ jobs:
   wake:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install -r requirements.txt
+      - name: Install Selenium
+        run: pip install selenium
 
-      - run: python wake.py
+      - name: Visit app and click wake button if asleep
         env:
           STREAMLIT_APP_URL: https://country-faceoff.streamlit.app/
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from selenium import webdriver
+          from selenium.common.exceptions import TimeoutException
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.support.ui import WebDriverWait
+
+          URL = os.environ["STREAMLIT_APP_URL"]
+          BTN = "//button[contains(text(),'Yes, get this app back up')]"
+
+          o = Options()
+          for a in ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]:
+              o.add_argument(a)
+          d = webdriver.Chrome(options=o)
+          try:
+              d.get(URL)
+              print("Opened", URL)
+              try:
+                  WebDriverWait(d, 15).until(EC.element_to_be_clickable((By.XPATH, BTN))).click()
+                  print("App was asleep - clicked wake button")
+                  WebDriverWait(d, 20).until(EC.invisibility_of_element_located((By.XPATH, BTN)))
+              except TimeoutException:
+                  print("No wake button found - app already awake")
+              time.sleep(45)  # stay on page so the session counts as real traffic
+              print("Done")
+          except Exception as e:
+              print("Error:", e)
+              sys.exit(1)
+          finally:
+              d.quit()
+          PY
